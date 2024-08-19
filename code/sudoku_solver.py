@@ -140,7 +140,7 @@ if __name__ == '__main__':
         print('solved!')
         print(grid_1)
     else:
-        print("not solved yet. go to next step.")
+        print("not solved on level 1. go to next level.")
         # print("no progress. stopped solving.")
         print(grid_1)
         grid_2, solved_flag_2 = solve_level_2(grid_1)
@@ -149,5 +149,5 @@ if __name__ == '__main__':
             print('solved!')
             print(grid_2)
         else:
-            print("not solved yet. go to next step.")
+            print("not solved on level 2. go to next level.")
             print(grid_2)
