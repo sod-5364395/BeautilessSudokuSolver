@@ -1,21 +1,7 @@
 import numpy as np
 
 
-def make_sets(grid):
-    columns, rows, blocks = [], [], []
-    for column in grid.T:
-        columns.append(set(column))
-    for row in grid:
-        rows.append(set(row))
-    for i in range(0, 9, 3):
-        for j in range(0, 9, 3):
-            blocks.append(set(grid[i:i+3, j:j+3].flatten()))
-    return columns, rows, blocks
-
-
 def solve_level_1(grid):
-    print("starting grid:")
-    print(grid)
     default_set = {1, 2, 3, 4, 5, 6, 7, 8, 9}
     unclear_counter = 0
     unclear_counter_old = 0
@@ -25,11 +11,9 @@ def solve_level_1(grid):
         for row in range(0, 9):
             for column in range(0, 9):
                 if grid[row][column] == 0:
-                    c, r, m = make_sets(grid)
-                    block_r = row // 3
-                    block_c = column // 3
-                    block = block_r * 3 + block_c
-                    diff = default_set.difference(c[column]).difference(r[row]).difference(m[block])
+                    r, c, b = make_sets(grid)
+                    block = calc_block_index(row, column)
+                    diff = default_set.difference(r[row]).difference(c[column]).difference(b[block])
                     if len(diff) == 1:
                         grid[row][column] = diff.pop()
                     elif len(diff) == 0:
@@ -54,44 +38,95 @@ def solve_level_2(grid):
         for row in range(0, 9):
             for column in range(0, 9):
                 if grid[row][column] == 0:
-                    c, r, m = make_sets(grid)
-                    block_r = row // 3
-                    block_c = column // 3
-                    block = block_r * 3 + block_c
-                    unclear_diff = default_set.difference(c[column]).difference(r[row]).difference(m[block])
-                    other_unclear_sets = []
+                    r, c, b = make_sets(grid)
+                    block = calc_block_index(row, column)
+                    unclear_diff = default_set.difference(c[column]).difference(r[row]).difference(b[block])
+                    other_unclear_sets_row = []
+                    other_unclear_sets_column = []
+                    other_unclear_sets_block = []
                     for col in range(0, 9):
                         if grid[row][col] == 0 and col != column:
-                            block_r = row // 3
-                            block_c = col // 3
-                            block_col = block_r * 3 + block_c
-                            if block_col != block:
-                                other_unclear_sets.append(default_set.difference(c[col]).difference(r[row]).difference(m[block]))
-                    for ro in range(0, 9):
-                        if grid[ro][column] == 0 and ro != row:
-                            block_r = ro // 3
-                            block_c = column // 3
-                            block_ro = block_r * 3 + block_c
-                            if block_ro != block:
-                                other_unclear_sets.append(default_set.difference(c[column]).difference(r[ro]).difference(m[block]))
-                    row_start_b, col_start_b = upper_left_corner(block)
-                    for i in range(row_start_b, row_start_b + 3):
-                        for j in range(col_start_b, col_start_b + 3):
-                            if i != row or j != column:
-                                other_unclear_sets.append(default_set.difference(c[j]).difference(r[i]).difference(m[block]))
-                    for other_unclear_set in other_unclear_sets:
-                        unclear_diff = unclear_diff.difference(other_unclear_set)
-                    if len(unclear_diff) == 1:
-                        grid[row][column] = unclear_diff.pop()
+                            block_col = calc_block_index(row, col)
+                            other_unclear_sets_row.append(default_set.difference(r[row]).difference(c[col]).difference(b[block_col]))
+                    unclear_diff_copy = unclear_diff
+                    for other_unclear_set_row in other_unclear_sets_row:
+                        unclear_diff_copy = unclear_diff_copy.difference(other_unclear_set_row)
+                    if len(unclear_diff_copy) == 1:
+                        grid[row][column] = unclear_diff_copy.pop()
                         grid, solved_flag = solve_level_1(grid)
+                        if solved_flag:
+                            break
                     else:
-                        unclear_counter += 1
-                        solved_flag = False
+                        for ro in range(0, 9):
+                            if grid[ro][column] == 0 and ro != row:
+                                block_ro = calc_block_index(ro, column)
+                                other_unclear_sets_column.append(default_set.difference(r[ro]).difference(c[column]).difference(b[block_ro]))
+                        unclear_diff_copy = unclear_diff
+                        for other_unclear_set_column in other_unclear_sets_column:
+                            unclear_diff_copy = unclear_diff_copy.difference(other_unclear_set_column)
+                        if len(unclear_diff_copy) == 1:
+                            grid[row][column] = unclear_diff_copy.pop()
+                            grid, solved_flag = solve_level_1(grid)
+                            if solved_flag:
+                                break
+                        else:
+                            row_start_b, col_start_b = upper_left_corner(block)
+                            for i in range(row_start_b, row_start_b + 3):
+                                for j in range(col_start_b, col_start_b + 3):
+                                    if grid[i][j] == 0 and (i != row or j != column):
+                                        other_unclear_sets_block.append(
+                                            default_set.difference(r[i]).difference(c[j]).difference(b[block]))
+                            unclear_diff_copy = unclear_diff
+                            for other_unclear_set_column in other_unclear_sets_column:
+                                unclear_diff_copy = unclear_diff_copy.difference(other_unclear_set_column)
+                            if len(unclear_diff_copy) == 1:
+                                grid[row][column] = unclear_diff_copy.pop()
+                                grid, solved_flag = solve_level_1(grid)
+                                if solved_flag:
+                                    break
+                            else:
+                                unclear_counter += 1
+                                solved_flag = False
+            if solved_flag:
+                break
         if unclear_counter_old == unclear_counter:
             break
         unclear_counter_old = unclear_counter
         unclear_counter = 0
     return grid, solved_flag
+
+
+def solve_level_3(grid):
+    if _rec_solve_level_3(grid):
+        return grid, True
+    return grid, False
+
+
+def _rec_solve_level_3(grid):
+    default_set = {1, 2, 3, 4, 5, 6, 7, 8, 9}
+    for row in range(0, 9):
+        for column in range(0, 9):
+            if grid[row][column] == 0:
+                r, c, b = make_sets(grid)
+                block = calc_block_index(row, column)
+                unclear_diff = default_set.difference(c[column]).difference(r[row]).difference(b[block])
+                if len(unclear_diff) > 0:
+                    for number in unclear_diff:
+                        grid[row][column] = number
+                        if _rec_solve_level_3(grid):
+                            return True
+                        grid[row][column] = 0
+                    return False
+                else:
+                    return False
+    return True
+
+
+def calc_block_index(row, column):
+    block_r = row // 3
+    block_c = column // 3
+    block_index = block_r * 3 + block_c
+    return block_index
 
 
 def upper_left_corner(block_index):
@@ -102,52 +137,113 @@ def upper_left_corner(block_index):
     return row_start, col_start
 
 
+def make_sets(grid):
+    rows, columns, blocks = [], [], []
+    for row in grid:
+        rows.append(set(row))
+    for column in grid.T:
+        columns.append(set(column))
+    for i in range(0, 9, 3):
+        for j in range(0, 9, 3):
+            blocks.append(set(grid[i:i+3, j:j+3].flatten()))
+    return rows, columns, blocks
+
+
 if __name__ == '__main__':
 
-    grid_easy_0 = np.array([[0, 4, 0, 5, 0, 0, 0, 7, 0],
-                            [0, 0, 5, 6, 0, 9, 8, 3, 1],
-                            [6, 3, 0, 0, 2, 7, 5, 4, 0],
-                            [7, 0, 4, 0, 0, 0, 0, 0, 6],
-                            [0, 6, 0, 0, 5, 3, 2, 8, 4],
-                            [0, 0, 0, 0, 0, 6, 0, 5, 0],
-                            [3, 8, 7, 0, 0, 0, 4, 0, 0],
-                            [0, 0, 0, 1, 0, 5, 0, 0, 3],
-                            [5, 1, 6, 0, 0, 0, 9, 2, 0]])
+    grid_easy_0 = np.array([
+        [0, 4, 0, 5, 0, 0, 0, 7, 0],
+        [0, 0, 5, 6, 0, 9, 8, 3, 1],
+        [6, 3, 0, 0, 2, 7, 5, 4, 0],
+        [7, 0, 4, 0, 0, 0, 0, 0, 6],
+        [0, 6, 0, 0, 5, 3, 2, 8, 4],
+        [0, 0, 0, 0, 0, 6, 0, 5, 0],
+        [3, 8, 7, 0, 0, 0, 4, 0, 0],
+        [0, 0, 0, 1, 0, 5, 0, 0, 3],
+        [5, 1, 6, 0, 0, 0, 9, 2, 0]])
 
-    grid_easy_1 = np.array([[4, 9, 0, 1, 6, 0, 3, 7, 0],
-                            [0, 0, 7, 0, 0, 0, 1, 8, 6],
-                            [0, 8, 0, 2, 0, 0, 0, 5, 0],
-                            [3, 0, 0, 7, 9, 0, 0, 0, 5],
-                            [0, 0, 0, 3, 0, 0, 7, 2, 1],
-                            [8, 7, 0, 4, 2, 5, 6, 0, 0],
-                            [0, 0, 3, 0, 0, 2, 4, 0, 7],
-                            [6, 0, 4, 0, 7, 3, 2, 0, 0],
-                            [0, 2, 0, 0, 1, 0, 0, 9, 0]])
+    grid_easy_1 = np.array([
+        [4, 9, 0, 1, 6, 0, 3, 7, 0],
+        [0, 0, 7, 0, 0, 0, 1, 8, 6],
+        [0, 8, 0, 2, 0, 0, 0, 5, 0],
+        [3, 0, 0, 7, 9, 0, 0, 0, 5],
+        [0, 0, 0, 3, 0, 0, 7, 2, 1],
+        [8, 7, 0, 4, 2, 5, 6, 0, 0],
+        [0, 0, 3, 0, 0, 2, 4, 0, 7],
+        [6, 0, 4, 0, 7, 3, 2, 0, 0],
+        [0, 2, 0, 0, 1, 0, 0, 9, 0]])
 
-    grid_very_very_difficult_1 = np.array([[0, 0, 1, 0, 7, 0, 2, 0, 3],
-                                           [8, 0, 0, 0, 0, 5, 0, 0, 0],
-                                           [0, 0, 0, 0, 0, 0, 0, 0, 6],
-                                           [5, 0, 0, 0, 0, 9, 6, 0, 1],
-                                           [0, 0, 0, 0, 0, 4, 0, 0, 0],
-                                           [7, 0, 9, 0, 0, 0, 0, 0, 8],
-                                           [0, 0, 7, 8, 3, 0, 0, 0, 0],
-                                           [0, 0, 5, 4, 2, 0, 0, 0, 0],
-                                           [0, 6, 0, 0, 5, 0, 0, 3, 7]])
+    grid_very_very_difficult_0 = np.array([
+        [0, 0, 1, 0, 7, 0, 2, 0, 3],
+        [8, 0, 0, 0, 0, 5, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 6],
+        [5, 0, 0, 0, 0, 9, 6, 0, 1],
+        [0, 0, 0, 0, 0, 4, 0, 0, 0],
+        [7, 0, 9, 0, 0, 0, 0, 0, 8],
+        [0, 0, 7, 8, 3, 0, 0, 0, 0],
+        [0, 0, 5, 4, 2, 0, 0, 0, 0],
+        [0, 6, 0, 0, 5, 0, 0, 3, 7]])
 
-    grid_1, solved_flag_1 = solve_level_1(grid_very_very_difficult_1)
+    grid_medium_0 = np.array([
+        [0, 0, 7, 0, 0, 9, 0, 3, 0],
+        [0, 6, 8, 0, 0, 0, 9, 2, 0],
+        [0, 0, 3, 0, 0, 2, 1, 0, 8],
+        [0, 7, 0, 9, 0, 0, 2, 4, 0],
+        [3, 0, 0, 0, 0, 5, 0, 0, 0],
+        [5, 9, 0, 0, 0, 7, 0, 0, 0],
+        [0, 0, 0, 0, 2, 0, 0, 9, 0],
+        [8, 0, 0, 0, 5, 0, 4, 0, 0],
+        [0, 0, 1, 0, 0, 4, 6, 0, 0]])
+
+    grid_difficult_0 = np.array([
+        [1, 0, 8, 0, 0, 2, 0, 0, 5],
+        [0, 0, 0, 7, 0, 0, 0, 0, 0],
+        [0, 0, 6, 0, 4, 0, 0, 0, 0],
+        [8, 0, 0, 0, 0, 1, 5, 0, 0],
+        [5, 0, 0, 0, 2, 0, 7, 3, 0],
+        [0, 0, 0, 0, 9, 0, 0, 0, 6],
+        [6, 3, 7, 0, 0, 0, 0, 0, 0],
+        [0, 0, 4, 9, 0, 0, 0, 8, 0],
+        [0, 0, 0, 0, 1, 0, 4, 0, 0]])
+
+    grid_unclear_difficulty_0 = np.array([
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+    grid_error_0 = np.array([
+        [0, 0, 4, 0, 6, 0, 2, 0, 3],
+        [8, 0, 0, 0, 0, 5, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0, 6],
+        [5, 0, 0, 0, 0, 9, 6, 0, 1],
+        [0, 0, 0, 0, 0, 4, 0, 0, 0],
+        [7, 0, 9, 0, 0, 0, 0, 0, 8],
+        [0, 0, 7, 8, 3, 0, 0, 0, 0],
+        [0, 0, 5, 4, 2, 0, 0, 0, 0],
+        [0, 6, 0, 0, 5, 0, 0, 3, 7]])
+
+    grid_1, solved_flag_1 = solve_level_1(grid_easy_1)
 
     if solved_flag_1:
-        print('solved!')
+        print('solved on level 1!')
         print(grid_1)
     else:
-        print("not solved on level 1. go to next level.")
-        # print("no progress. stopped solving.")
-        print(grid_1)
+        print("not solved on level 1. go to level 2.")
         grid_2, solved_flag_2 = solve_level_2(grid_1)
-
         if solved_flag_2:
-            print('solved!')
+            print('solved on level 2!')
             print(grid_2)
         else:
-            print("not solved on level 2. go to next level.")
-            print(grid_2)
+            print("not solved on level 2. go to level 3.")
+            grid_3, solved_flag_3 = solve_level_3(grid_2)
+            if solved_flag_3:
+                print('solved on level 3!')
+                print(grid_3)
+            else:
+                print("not solved on level 3. ERROR???")
