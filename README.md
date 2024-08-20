@@ -1,1 +1,3 @@
 # SudokuSolver
+
+Needs numpy.
